@@ -18,14 +18,16 @@ TEST_F(AsyncTimerTest, test1_000_000)
     std::vector<uint64_t> task_ids;
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
-    running::AutoThread thr(&at);
-    sleep(1);
-    for (uint32_t i = 0; i < 1'000'000; ++i)
     {
-        at.createNanoTimer(1000 * i, [=]() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        running::AutoThread thr(&at);
+        sleep(1);
+        for (uint32_t i = 0; i < 1'000'000; ++i)
+        {
+            at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        }
+        sleep(10);
     }
-    sleep(10);
-    ASSERT_TRUE(true);
+    std::cout << "MAX_DELAY:" << at.maxDelay();
 }
 
 TEST_F(AsyncTimerTest, test100_000)
@@ -34,14 +36,16 @@ TEST_F(AsyncTimerTest, test100_000)
     std::vector<uint64_t> task_ids;
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
-    running::AutoThread thr(&at);
-    sleep(1);
-    for (uint32_t i = 0; i < max_tasks; ++i)
     {
-        at.createNanoTimer(1000 * i, [=]() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        running::AutoThread thr(&at);
+        sleep(1);
+        for (uint32_t i = 0; i < max_tasks; ++i)
+        {
+            at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        }
+        sleep(10);
     }
-    sleep(10);
-    ASSERT_TRUE(true);
+    std::cout << "MAX_DELAY:" << at.maxDelay();
 }
 
 TEST_F(AsyncTimerTest, test10_000)
@@ -50,14 +54,16 @@ TEST_F(AsyncTimerTest, test10_000)
     std::vector<uint64_t> task_ids;
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
-    running::AutoThread thr(&at);
-    sleep(1);
-    for (uint32_t i = 0; i < max_tasks; ++i)
     {
-        at.createNanoTimer(1000 * i, [=]() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        running::AutoThread thr(&at);
+        sleep(1);
+        for (uint32_t i = 0; i < max_tasks; ++i)
+        {
+            at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+        }
+        sleep(10);
     }
-    sleep(10);
-    ASSERT_TRUE(true);
+    std::cout << "MAX_DELAY:" << at.maxDelay();
 }
 
 TEST_F(AsyncTimerTest, test)
@@ -66,19 +72,21 @@ TEST_F(AsyncTimerTest, test)
     std::vector<uint64_t> task_ids;
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
-    running::AutoThread thr(&at);
-    sleep(1);
-    task_ids.push_back(at.createSecTimer(1, [=]()
-                                         { std::cout << "time " << getTimeNs() << std::endl; }));
-    task_ids.push_back(at.createSecTimer(10, [=]()
-                                         { std::cout << "time " << getTimeNs() << std::endl; }));
-    task_ids.push_back(at.createSecTimer(13, [=]()
-                                         { std::cout << "time " << getTimeNs() << std::endl; }));
+    {
+        running::AutoThread thr(&at);
+        sleep(1);
+        task_ids.push_back(at.createSecTimer(1, []()
+                                             { std::cout << "time " << getTimeNs() << std::endl; }));
+        task_ids.push_back(at.createSecTimer(10, []()
+                                             { std::cout << "time " << getTimeNs() << std::endl; }));
+        task_ids.push_back(at.createSecTimer(13, []()
+                                             { std::cout << "time " << getTimeNs() << std::endl; }));
 
-    sleep(20);
-    for (auto id : task_ids)
-        std::cout << "id " << id << std::endl;
-    ASSERT_TRUE(true);
+        sleep(20);
+        for (auto id : task_ids)
+            std::cout << "id " << id << std::endl;
+    }
+    std::cout << "MAX_DELAY:" << at.maxDelay();
 }
 
 TEST_F(AsyncTimerTest, test_async)
@@ -87,25 +95,43 @@ TEST_F(AsyncTimerTest, test_async)
     std::vector<uint64_t> task_ids;
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
-    running::AutoThread thr(&at);
-    sleep(1);
-    task_ids.push_back(at.createSecTimer(
-        1, [=]()
-        { std::cout << "time " << getTimeNs() << std::endl; },
-        true));
-    task_ids.push_back(at.createSecTimer(
-        10, [=]()
-        { std::cout << "time " << getTimeNs() << std::endl; },
-        true));
-    task_ids.push_back(at.createSecTimer(
-        13, [=]()
-        { std::cout << "time " << getTimeNs() << std::endl; },
-        true));
+    {
+        running::AutoThread thr(&at);
+        sleep(1);
+        task_ids.push_back(at.createSecTimer(
+            1, []()
+            { std::cout << "time " << getTimeNs() << std::endl; },
+            true));
+        task_ids.push_back(at.createSecTimer(
+            10, []()
+            { std::cout << "time " << getTimeNs() << std::endl; },
+            true));
+        task_ids.push_back(at.createSecTimer(
+            13, []()
+            { std::cout << "time " << getTimeNs() << std::endl; },
+            true));
 
-    sleep(20);
+        sleep(20);
+    }
     for (auto id : task_ids)
         std::cout << "id " << id << std::endl;
-    ASSERT_TRUE(true);
+    std::cout << "MAX_DELAY:" << at.maxDelay();
+}
+
+TEST_F(AsyncTimerTest, test_max_tasks)
+{
+    const uint32_t max_tasks = 2;
+    AsyncTimer at(max_tasks, 1);
+    {
+        running::AutoThread thr(&at);
+        sleep(1);
+        ASSERT_TRUE(at.createSecTimer(10, TASK(1, 10)));
+        ASSERT_TRUE(at.createSecTimer(20, TASK(2, 20)));
+        ASSERT_FALSE(at.createSecTimer(15, TASK(3, 15)));
+
+        sleep(25);
+    }
+    std::cout << "MAX_DELAY:" << at.maxDelay();
 }
 
 int main(int argc, char **argv)
