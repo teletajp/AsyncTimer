@@ -14,7 +14,8 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
     : max_timers_(max_timers),
       check_interval_ns_(check_interval_ns),
       qsize_(0),
-      cur_ns_(0)
+      cur_ns_(0),
+      running_(false)
 {
     Container task_mem;
     task_mem.reserve(max_timers_);
@@ -42,6 +43,7 @@ uint64_t AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is
     ns += cur_ns;
     cur_ns_ = cur_ns;
     tasks_queue_.emplace(ns, cb, is_async);
+    qsize_++;
     new_timer_event_.notify_one();
     return ns;
 }
@@ -73,16 +75,29 @@ size_t AsyncTimer::checkTimers()
             t.detach();
         }
         delay = cur_ns_ - tasks_queue_.top().ns;
-        max_delay = std::max(max_delay, delay);
-        // std::cout << "TASK " << tasks_queue_.top().ns << " Done. Time:" << cur_ns_ << "cur_tm:" <<getTimeNs() << std::endl;
+        max_delay_ = std::max(max_delay_, delay);
         tasks_queue_.pop();
+        qsize_--;
     }
     return count;
 }
 
 void AsyncTimer::checkTimersNow()
 {
-    new_timer_event_.notify_one();
+    if (running_)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        new_timer_event_.notify_one();
+    }
+    else
+    {
+        uint64_t cur_ns = 0;
+        if (cur_ns = getTimeNs(); cur_ns != 0)
+        {
+            cur_ns_ = cur_ns;
+            checkTimers();
+        }
+    }
 }
 
 void AsyncTimer::run(std::atomic_bool &terminate)
@@ -90,6 +105,7 @@ void AsyncTimer::run(std::atomic_bool &terminate)
     uint64_t cur_ns = 0;
     uint64_t timeout = 0;
     std::unique_lock<std::mutex> lock(mtx_, std::defer_lock);
+    running_ = true;
     while (!terminate.load(std::memory_order_relaxed))
     {
         cur_ns = getTimeNs();
@@ -106,5 +122,5 @@ void AsyncTimer::run(std::atomic_bool &terminate)
             lock.unlock();
         }
     }
-    std::cout << "MAX_DELAY=" << max_delay << std::endl;
+    running_ = false;
 }
