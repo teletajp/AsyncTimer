@@ -9,7 +9,6 @@ using namespace std::chrono_literals;
 
 class AsyncTimerTest : public ::testing::Test
 {
-public:
 protected:
     virtual void SetUp() {}
     virtual void TearDown() {}
@@ -24,13 +23,13 @@ TEST_F(AsyncTimerTest, test1_000_000)
     {
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
-        for (uint32_t i = 0; i < 1'000'000; ++i)
+        for (uint32_t i = 0; i < max_tasks; ++i)
         {
             at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test100_000)
@@ -48,7 +47,7 @@ TEST_F(AsyncTimerTest, test100_000)
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test10_000)
@@ -66,7 +65,7 @@ TEST_F(AsyncTimerTest, test10_000)
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test)
@@ -79,17 +78,18 @@ TEST_F(AsyncTimerTest, test)
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(1, []()
-                                             { std::cout << "time " << getTimeNs() << std::endl; }));
+                                             { std::cout << "timer 1 1s stop at " << getTimeNs() << "ns" << std::endl; }));
         task_ids.push_back(at.createSecTimer(10, []()
-                                             { std::cout << "time " << getTimeNs() << std::endl; }));
+                                             { std::cout << "timer 2 10s stop at " << getTimeNs() << "ns" << std::endl; }));
         task_ids.push_back(at.createSecTimer(13, []()
-                                             { std::cout << "time " << getTimeNs() << std::endl; }));
+                                             { std::cout << "timer 3 13s stop at " << getTimeNs() << "ns" << std::endl; }));
 
         std::this_thread::sleep_for(20s);
+        uint32_t i = 1;
         for (auto id : task_ids)
-            std::cout << "id " << id << std::endl;
+            std::cout << "timer " << i++ << " start time " << id << "ns" << std::endl;
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test_async)
@@ -103,22 +103,23 @@ TEST_F(AsyncTimerTest, test_async)
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(
             1, []()
-            { std::cout << "time " << getTimeNs() << std::endl; },
+            { std::cout << "timer 1 1s stop at " << getTimeNs() << "ns" << std::endl; },
             true));
         task_ids.push_back(at.createSecTimer(
             10, []()
-            { std::cout << "time " << getTimeNs() << std::endl; },
+            { std::cout << "timer 2 10s stop at " << getTimeNs() << "ns" << std::endl; },
             true));
         task_ids.push_back(at.createSecTimer(
             13, []()
-            { std::cout << "time " << getTimeNs() << std::endl; },
+            { std::cout << "timer 3 13s stop at " << getTimeNs() << "ns" << std::endl; },
             true));
 
         std::this_thread::sleep_for(20s);
     }
+    uint32_t i = 1;
     for (auto id : task_ids)
-        std::cout << "id " << id << std::endl;
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+        std::cout << "timer " << i++ << " start time " << id << "ns" << std::endl;
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test_max_tasks)
@@ -131,10 +132,11 @@ TEST_F(AsyncTimerTest, test_max_tasks)
         ASSERT_TRUE(at.createSecTimer(10, TASK(1, 10)));
         ASSERT_TRUE(at.createSecTimer(20, TASK(2, 20)));
         ASSERT_FALSE(at.createSecTimer(15, TASK(3, 15)));
-
-        std::this_thread::sleep_for(25s);
+        std::this_thread::sleep_for(10s);
+        ASSERT_TRUE(at.createSecTimer(5, TASK(3, 5)));
+        std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
 int main(int argc, char **argv)
