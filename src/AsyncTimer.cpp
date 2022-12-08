@@ -83,6 +83,7 @@ size_t AsyncTimer::checkTimers()
             std::thread t(tasks_queue_.top().cb);
             t.detach();
         }
+        cur_ns_ = getTimeNs();
         delay = cur_ns_ - tasks_queue_.top().ns;
         max_delay_ = std::max(max_delay_, delay);
         tasks_queue_.pop();
