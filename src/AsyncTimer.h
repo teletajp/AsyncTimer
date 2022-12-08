@@ -51,6 +51,18 @@ struct AsyncTimerTask
             cb();
     }
 };
+
+struct TimerInfo
+{
+    union
+    {
+        uint64_t id = 0;
+        uint64_t start_tm_ns;
+    };
+    uint64_t shedule_tm_ns = 0;
+    TimerInfo() = default;
+    TimerInfo(uint64_t start_tm_ns, uint64_t shedule_tm_ns) : start_tm_ns(start_tm_ns), shedule_tm_ns(shedule_tm_ns) {}
+};
 /**
  * @brief Асинхронный таймер
  *
@@ -94,7 +106,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    uint64_t createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async = false);
     /**
      * @brief Создание таймера ожидающего ms милисекунд
      *
@@ -103,7 +115,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    uint64_t createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async = false);
     /**
      * @brief Создание таймера ожидающего sec секунд
      *
@@ -112,7 +124,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    uint64_t createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async = false);
     // uint64_t deleteTimer(uint64_t id);
     /**
      * @brief Запуск цикла проверки таймеров

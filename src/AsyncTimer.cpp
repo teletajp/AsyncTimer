@@ -29,16 +29,16 @@ AsyncTimer::~AsyncTimer()
     }
 }
 
-uint64_t AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
 {
     uint64_t cur_ns = 0;
     if (running_.load())
     {
         std::lock_guard<std::mutex> lock(mtx_);
         if (qsize_ == max_timers_)
-            return 0;
+            return {};
         if (cur_ns = getTimeNs(); cur_ns == 0)
-            return 0;
+            return {};
         ns += cur_ns;
         cur_ns_ = cur_ns;
         tasks_queue_.emplace(ns, cb, is_async);
@@ -48,22 +48,22 @@ uint64_t AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is
     else
     {
         if (cur_ns = getTimeNs(); cur_ns == 0)
-            return 0;
+            return {};
         ns += cur_ns;
         cur_ns_ = cur_ns;
         tasks_queue_.emplace(ns, cb, is_async);
         qsize_++;
     }
-    return cur_ns;
+    return {cur_ns, ns};
 }
 
-uint64_t AsyncTimer::createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async)
 {
     uint64_t ns = ms * 1'000'000;
     return createNanoTimer(ns, cb, is_async);
 }
 
-uint64_t AsyncTimer::createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async)
 {
     uint64_t ns = static_cast<uint64_t>(sec) * 1'000'000'000;
     return createNanoTimer(ns, cb, is_async);
