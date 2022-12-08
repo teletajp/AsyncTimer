@@ -86,7 +86,7 @@ void AsyncTimer::checkTimersNow()
 {
     if (running_)
     {
-        std::lock_guard<std::mutex> lock(mtx_);
+        //std::lock_guard<std::mutex> lock(mtx_);
         new_timer_event_.notify_one();
     }
     else
