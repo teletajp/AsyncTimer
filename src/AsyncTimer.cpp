@@ -35,17 +35,29 @@ AsyncTimer::~AsyncTimer()
 
 uint64_t AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
 {
-    std::lock_guard<std::mutex> lock(mtx_);
-    if (qsize_ == max_timers_)
-        return false;
     uint64_t cur_ns = 0;
-    if (cur_ns = getTimeNs(); cur_ns == 0)
-        return false;
-    ns += cur_ns;
-    cur_ns_ = cur_ns;
-    tasks_queue_.emplace(ns, cb, is_async);
-    qsize_++;
-    new_timer_event_.notify_one();
+    if (running_.load())
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        if (qsize_ == max_timers_)
+            return 0;
+        if (cur_ns = getTimeNs(); cur_ns == 0)
+            return 0;
+        ns += cur_ns;
+        cur_ns_ = cur_ns;
+        tasks_queue_.emplace(ns, cb, is_async);
+        qsize_++;
+        new_timer_event_.notify_one();
+    }
+    else
+    {
+        if (cur_ns = getTimeNs(); cur_ns == 0)
+            return 0;
+        ns += cur_ns;
+        cur_ns_ = cur_ns;
+        tasks_queue_.emplace(ns, cb, is_async);
+        qsize_++;
+    }
     return cur_ns;
 }
 
@@ -85,9 +97,9 @@ size_t AsyncTimer::checkTimers()
 
 void AsyncTimer::checkTimersNow()
 {
-    if (running_)
+    if (running_.load())
     {
-        //std::lock_guard<std::mutex> lock(mtx_);
+        // std::lock_guard<std::mutex> lock(mtx_);
         new_timer_event_.notify_one();
     }
     else
@@ -106,7 +118,7 @@ void AsyncTimer::run(std::atomic_bool &terminate)
     uint64_t cur_ns = 0;
     uint64_t timeout = 0;
     std::unique_lock<std::mutex> lock(mtx_, std::defer_lock);
-    running_ = true;
+    running_.store(true);
     while (!terminate.load(std::memory_order_relaxed))
     {
         cur_ns = getTimeNs();
@@ -123,5 +135,5 @@ void AsyncTimer::run(std::atomic_bool &terminate)
             lock.unlock();
         }
     }
-    running_ = false;
+    running_.store(false);
 }

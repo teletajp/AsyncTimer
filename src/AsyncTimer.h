@@ -70,7 +70,7 @@ private:
     std::mutex mtx_;
     std::condition_variable new_timer_event_;
     uint64_t max_delay_ = 0;
-    bool running_;
+    std::atomic_bool running_;
 
 public:
     /**

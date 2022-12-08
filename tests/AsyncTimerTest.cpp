@@ -139,6 +139,26 @@ TEST_F(AsyncTimerTest, test_max_tasks)
     std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
+TEST_F(AsyncTimerTest, test_no_running)
+{
+    const uint32_t max_tasks = 10;
+    AsyncTimer at(max_tasks, 1);
+    for (uint32_t i = 1; i <= max_tasks; ++i)
+    {
+        ASSERT_TRUE(at.createSecTimer(i, [i]()
+                                      { std::cout << "OnTimer" << i << std::endl; }));
+    }
+    std::this_thread::sleep_for(3s);
+    at.checkTimersNow();
+    std::this_thread::sleep_for(3s);
+    at.checkTimersNow();
+    std::this_thread::sleep_for(3s);
+    at.checkTimersNow();
+    std::this_thread::sleep_for(3s);
+    at.checkTimersNow();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
