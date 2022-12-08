@@ -1,13 +1,9 @@
 #include "AsyncTimer.h"
-#include <time.h>
 #include <thread>
-#include <iostream>
+#include <chrono>
 uint64_t getTimeNs()
 {
-    timespec ts;
-    if (__builtin_expect(timespec_get(&ts, TIME_UTC) != 0, 1))
-        return ts.tv_sec * 1'000'000'000 + ts.tv_nsec;
-    return 0;
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
