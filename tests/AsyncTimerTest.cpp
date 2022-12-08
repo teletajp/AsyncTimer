@@ -132,7 +132,7 @@ TEST_F(AsyncTimerTest, test_max_tasks)
         ASSERT_TRUE(at.createSecTimer(10, TASK(1, 10)));
         ASSERT_TRUE(at.createSecTimer(20, TASK(2, 20)));
         ASSERT_FALSE(at.createSecTimer(15, TASK(3, 15)));
-        std::this_thread::sleep_for(10s);
+        std::this_thread::sleep_for(11s);
         ASSERT_TRUE(at.createSecTimer(5, TASK(3, 5)));
         std::this_thread::sleep_for(10s);
     }
