@@ -14,10 +14,11 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
       running_(false)
 {
     auto task_cmp = std::greater<AsyncTimerTask>();
-    Container task_mem;
-    task_mem.reserve(max_timers_);
+    Container task_mem(max_timers_);
     TaskQueue tmp(task_cmp, task_mem);
     tasks_queue_.swap(tmp);
+    while (!tasks_queue_.empty())
+        tasks_queue_.pop();
 }
 
 AsyncTimer::~AsyncTimer()
