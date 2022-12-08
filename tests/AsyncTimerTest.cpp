@@ -148,12 +148,16 @@ TEST_F(AsyncTimerTest, test_no_running)
         ASSERT_TRUE(at.createSecTimer(i, [i]()
                                       { std::cout << "OnTimer" << i << std::endl; }));
     }
+    std::cout << "WAIT 3s:" << std::endl;
     std::this_thread::sleep_for(3s);
     at.checkTimersNow();
+    std::cout << "WAIT 3s:" << std::endl;
     std::this_thread::sleep_for(3s);
     at.checkTimersNow();
+    std::cout << "WAIT 3s:" << std::endl;
     std::this_thread::sleep_for(3s);
     at.checkTimersNow();
+    std::cout << "WAIT 3s:" << std::endl;
     std::this_thread::sleep_for(3s);
     at.checkTimersNow();
     std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
