@@ -9,7 +9,7 @@ uint64_t getTimeNs()
         return ts.tv_sec * 1'000'000'000 + ts.tv_nsec;
     return 0;
 }
-static auto task_cmp = std::greater<AsyncTimerTask>();
+
 AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
     : max_timers_(max_timers),
       check_interval_ns_(check_interval_ns),
@@ -17,6 +17,7 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
       cur_ns_(0),
       running_(false)
 {
+    auto task_cmp = std::greater<AsyncTimerTask>();
     Container task_mem;
     task_mem.reserve(max_timers_);
     TaskQueue tmp(task_cmp, task_mem);
@@ -45,7 +46,7 @@ uint64_t AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is
     tasks_queue_.emplace(ns, cb, is_async);
     qsize_++;
     new_timer_event_.notify_one();
-    return ns;
+    return cur_ns;
 }
 
 uint64_t AsyncTimer::createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async)
