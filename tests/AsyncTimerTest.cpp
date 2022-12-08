@@ -159,6 +159,15 @@ TEST_F(AsyncTimerTest, test_no_running)
     std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
 }
 
+TEST_F(AsyncTimerTest, test_no_running_one_task)
+{
+    const uint32_t max_tasks = 10;
+    AsyncTimer at(max_tasks, 1);
+    ASSERT_TRUE(at.createNanoTimer(1, TASK(1, 1)));
+    at.checkTimersNow();
+    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
