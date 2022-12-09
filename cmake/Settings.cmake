@@ -55,11 +55,9 @@ add_compile_options(
     "$<$<CONFIG:Release>:-O2>")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 add_compile_options(
-    "-std=c++17"
-    "-Werror"
-    "-Wno-deprecated-declarations"
-    "-Wno-unused-result"
-    "$<$<CONFIG:Debug>:-ggdb>"
-    "$<$<CONFIG:Debug>:-O0>"
-    "$<$<CONFIG:Release>:-O2>")
+    /std:c++17 /W4 /wd4324
+    "$<$<CONFIG:Debug>:/ZI>"
+    "$<$<CONFIG:Debug>:/Od>"
+    "$<$<CONFIG:Release>:/O2>"
+    "$<$<CONFIG:Release>:/WX>")
 endif()

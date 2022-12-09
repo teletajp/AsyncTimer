@@ -1,5 +1,7 @@
 #include "Runnable.h"
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <thread>
 
 namespace running
@@ -83,10 +85,13 @@ namespace running
 
         static bool StickThreadToCore(int core_id)
         {
-#ifdef __linux__
-            int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-            if (num_cores == -1)
+            int num_cores = std::thread::hardware_concurrency();
+            if (num_cores <= 0 || core_id >= num_cores)
                 return false;
+#ifdef __linux__
+            // int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+            // if (num_cores == -1)
+            //     return false;
             cpu_set_t cpuset;
             CPU_ZERO(&cpuset);
             CPU_SET(core_id, &cpuset);
