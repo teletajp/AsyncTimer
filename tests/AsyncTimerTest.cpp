@@ -3,6 +3,7 @@
 #include <AsyncTimer.h>
 #include <chrono>
 #include <thread>
+#include <random>
 
 #define TASK(N, T) []() { std::cout << "OnTimer" #N " time " #T << std::endl; }
 using namespace std::chrono_literals;
@@ -22,11 +23,15 @@ TEST_F(AsyncTimerTest, test1_000_000)
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<unsigned long long> distrib(1, 10'000'000'000);
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
+        srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
-            task_ids.push_back(at.createNanoTimer(1000 * i, [i, &task_stop_times]()
+            task_ids.push_back(at.createNanoTimer(distrib(gen), [i, &task_stop_times]()
                                                   { task_stop_times[i] = getTimeNs(); }));
         }
         std::this_thread::sleep_for(10s);
@@ -45,32 +50,50 @@ TEST_F(AsyncTimerTest, test100_000)
 {
     const uint32_t max_tasks = 100'000;
     std::vector<TimerInfo> task_ids;
+    std::vector<uint64_t> task_stop_times(max_tasks);
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<unsigned long long> distrib(1, 9'000'000'000);
         running::AutoThread thr(&at);
-        std::this_thread::sleep_for(1s);
+        std::this_thread::sleep_for(3s);
+        srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
-            at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+            task_ids.push_back(at.createNanoTimer(distrib(gen), {}));
         }
         std::this_thread::sleep_for(10s);
     }
     std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+    /* Раскоментировать для генерации отчета в csv: ./x64-osx/bin/tests/async_timer_test --gtest_filter=AsyncTimerTest.test100_000 > out.csv
+    std::cout << "start_tm_ns;shedule_tm_ns;stop_tm\n";
+    for (uint32_t i = 0; i < max_tasks; ++i)
+    {
+        std::cout << task_ids[i].start_tm_ns << ";" << task_ids[i].shedule_tm_ns << ";" << task_stop_times[i] << "\n";
+    }
+    std::cout << std::endl;*/
 }
 
 TEST_F(AsyncTimerTest, test10_000)
 {
     const uint32_t max_tasks = 10'000;
     std::vector<TimerInfo> task_ids;
+    std::vector<uint64_t> task_stop_times(max_tasks);
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<unsigned long long> distrib(1, 9'000'000'000);
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
+        srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
-            at.createNanoTimer(1000 * i, []() { /*std::cout << "OnTimer" << i << " time " << 1000*i << std::endl;*/ });
+            task_ids.push_back(at.createNanoTimer(distrib(gen), [i, &task_stop_times]()
+                                                  { task_stop_times[i] = getTimeNs(); }));
         }
         std::this_thread::sleep_for(10s);
     }

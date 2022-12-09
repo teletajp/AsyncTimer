@@ -27,7 +27,7 @@ struct AsyncTimerTask
     AsyncTimerTask() = default;
     AsyncTimerTask(const AsyncTimerTask &o) = default;
     AsyncTimerTask(AsyncTimerTask &&o) = default;
-    AsyncTimerTask operator=(const AsyncTimerTask &o)
+    AsyncTimerTask& operator=(const AsyncTimerTask &o)
     {
         if (&o != this)
         {

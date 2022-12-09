@@ -10,13 +10,11 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
     : max_timers_(max_timers),
       check_interval_ns_(check_interval_ns),
       qsize_(0),
+      tasks_queue_(std::greater<AsyncTimerTask>(), Container(max_timers_)),
       cur_ns_(0),
       running_(false)
 {
-    auto task_cmp = std::greater<AsyncTimerTask>();
-    Container task_mem(max_timers_);
-    TaskQueue tmp(task_cmp, task_mem);
-    tasks_queue_.swap(tmp);
+
     while (!tasks_queue_.empty())
         tasks_queue_.pop();
 }
@@ -77,12 +75,15 @@ size_t AsyncTimer::checkTimers()
     while (!tasks_queue_.empty() && tasks_queue_.top().ns <= cur_ns_)
     {
         count++;
-        if (!tasks_queue_.top().is_async)
-            tasks_queue_.top().cb();
-        else
+        if (tasks_queue_.top().cb)
         {
-            std::thread t(tasks_queue_.top().cb);
-            t.detach();
+            if (!tasks_queue_.top().is_async)
+                tasks_queue_.top().cb();
+            else
+            {
+                std::thread t(tasks_queue_.top().cb);
+                t.detach();
+            }
         }
         cur_ns_ = getTimeNs();
         delay = cur_ns_ - tasks_queue_.top().ns;
