@@ -1,6 +1,8 @@
 #include "AsyncTimer.h"
 #include <thread>
 #include <chrono>
+using namespace std::chrono_literals;
+
 uint64_t getTimeNs()
 {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -10,8 +12,10 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
     : max_timers_(max_timers),
       check_interval_ns_(check_interval_ns),
       qsize_(0),
-      tasks_queue_(std::greater<AsyncTimerTask>(), Container(max_timers_)),
+      tasks_queue_(Comp(), Container(max_timers_)),
       cur_ns_(0),
+      max_delay_(0),
+      max_size_(0),
       running_(false)
 {
 
@@ -88,6 +92,7 @@ size_t AsyncTimer::checkTimers()
         cur_ns_ = getTimeNs();
         delay = cur_ns_ - tasks_queue_.top().ns;
         max_delay_ = std::max(max_delay_, delay);
+        max_size_ = std::max(max_size_, qsize_);
         tasks_queue_.pop();
         qsize_--;
     }

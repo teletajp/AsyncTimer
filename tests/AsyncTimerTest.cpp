@@ -25,18 +25,19 @@ TEST_F(AsyncTimerTest, test1_000_000)
     {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<unsigned long long> distrib(1, 10'000'000'000);
-        running::AutoThread thr(&at);
+        std::uniform_int_distribution<unsigned long long> distrib(1'000, 10'000'000'000);
+        running::AutoThread thr(&at, 1);
         std::this_thread::sleep_for(1s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
             task_ids.push_back(at.createNanoTimer(distrib(gen), [i, &task_stop_times]()
                                                   { task_stop_times[i] = getTimeNs(); }));
+            std::this_thread::sleep_for(1000ns);
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+    std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
     /* Раскоментировать для генерации отчета в csv: ./x64-osx/bin/tests/async_timer_test --gtest_filter=AsyncTimerTest.test1_000_000 > out.csv
     std::cout << "start_tm_ns;shedule_tm_ns;stop_tm\n";
     for (uint32_t i = 0; i < max_tasks; ++i)
@@ -56,17 +57,18 @@ TEST_F(AsyncTimerTest, test100_000)
     {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<unsigned long long> distrib(1, 9'000'000'000);
-        running::AutoThread thr(&at);
+        std::uniform_int_distribution<unsigned long long> distrib(1'000, 9'000'000'000);
+        running::AutoThread thr(&at, 1);
         std::this_thread::sleep_for(3s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
             task_ids.push_back(at.createNanoTimer(distrib(gen), {}));
+            std::this_thread::sleep_for(1000ns);
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+    std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
     /* Раскоментировать для генерации отчета в csv: ./x64-osx/bin/tests/async_timer_test --gtest_filter=AsyncTimerTest.test100_000 > out.csv
     std::cout << "start_tm_ns;shedule_tm_ns;stop_tm\n";
     for (uint32_t i = 0; i < max_tasks; ++i)
@@ -86,18 +88,19 @@ TEST_F(AsyncTimerTest, test10_000)
     {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<unsigned long long> distrib(1, 9'000'000'000);
-        running::AutoThread thr(&at);
+        std::uniform_int_distribution<unsigned long long> distrib(1'000, 9'000'000'000);
+        running::AutoThread thr(&at, 1);
         std::this_thread::sleep_for(1s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
         {
             task_ids.push_back(at.createNanoTimer(distrib(gen), [i, &task_stop_times]()
                                                   { task_stop_times[i] = getTimeNs(); }));
+            std::this_thread::sleep_for(1000ns);
         }
         std::this_thread::sleep_for(10s);
     }
-    std::cout << "MAX_DELAY:" << at.maxDelay() << std::endl;
+    std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test)
@@ -107,7 +110,7 @@ TEST_F(AsyncTimerTest, test)
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
-        running::AutoThread thr(&at);
+        running::AutoThread thr(&at, 1);
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(1, []()
                                              { std::cout << "timer 1 1s stop at " << getTimeNs() << "ns" << std::endl; }));
@@ -132,7 +135,7 @@ TEST_F(AsyncTimerTest, test_async)
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
-        running::AutoThread thr(&at);
+        running::AutoThread thr(&at, 1);
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(
             1, []()

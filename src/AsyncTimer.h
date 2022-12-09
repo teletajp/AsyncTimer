@@ -27,7 +27,7 @@ struct AsyncTimerTask
     AsyncTimerTask() = default;
     AsyncTimerTask(const AsyncTimerTask &o) = default;
     AsyncTimerTask(AsyncTimerTask &&o) = default;
-    AsyncTimerTask& operator=(const AsyncTimerTask &o)
+    AsyncTimerTask &operator=(const AsyncTimerTask &o)
     {
         if (&o != this)
         {
@@ -81,7 +81,8 @@ private:
     uint64_t cur_ns_;
     std::mutex mtx_;
     std::condition_variable new_timer_event_;
-    uint64_t max_delay_ = 0;
+    uint64_t max_delay_;
+    size_t max_size_;
     std::atomic_bool running_;
 
 public:
@@ -144,6 +145,13 @@ public:
      * Не потокобезопасен
      */
     uint64_t maxDelay() const { return max_delay_; }
+    /**
+     * @brief Получение максимального количества активных таймеров
+     *
+     * @return uint64_t
+     * Не потокобезопасен
+     */
+    uint64_t maxSize() const { return max_size_; }
 
 private:
     size_t checkTimers();
