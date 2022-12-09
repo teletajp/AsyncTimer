@@ -17,12 +17,13 @@ uint64_t getTimeNs();
  * @brief Задание таймера
  *
  */
-struct AsyncTimerTask
+struct alignas(64) AsyncTimerTask
 {
     using Cb = std::function<void()>;
     uint64_t ns = 0;       ///< Время сработки таймера в наносекундах
     bool is_async = false; ///< Асинхронное выполнение задания
     Cb cb;                 ///< Задание таймера
+    uint64_t padding = 0;
 
     AsyncTimerTask() = default;
     AsyncTimerTask(const AsyncTimerTask &o) = default;
