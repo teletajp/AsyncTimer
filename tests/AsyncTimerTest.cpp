@@ -26,7 +26,7 @@ TEST_F(AsyncTimerTest, test1_000_000)
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<unsigned long long> distrib(1'000, 10'000'000'000);
-        running::AutoThread thr(&at, 1);
+        running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
@@ -58,7 +58,7 @@ TEST_F(AsyncTimerTest, test100_000)
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<unsigned long long> distrib(1'000, 9'000'000'000);
-        running::AutoThread thr(&at, 1);
+        running::AutoThread thr(&at);
         std::this_thread::sleep_for(3s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
@@ -89,7 +89,7 @@ TEST_F(AsyncTimerTest, test10_000)
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<unsigned long long> distrib(1'000, 9'000'000'000);
-        running::AutoThread thr(&at, 1);
+        running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
         srand(time(NULL));
         for (uint32_t i = 0; i < max_tasks; ++i)
@@ -110,7 +110,7 @@ TEST_F(AsyncTimerTest, test)
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
-        running::AutoThread thr(&at, 1);
+        running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(1, []()
                                              { std::cout << "timer 1 1s stop at " << getTimeNs() << "ns" << std::endl; }));
@@ -135,7 +135,7 @@ TEST_F(AsyncTimerTest, test_async)
     task_ids.reserve(max_tasks);
     AsyncTimer at(max_tasks, 1);
     {
-        running::AutoThread thr(&at, 1);
+        running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
         task_ids.push_back(at.createSecTimer(
             1, []()
