@@ -24,13 +24,42 @@ if(NOT CMAKE_BINARY_DIR)
     set(CMAKE_BINARY_DIR "${CMAKE_SOURCE_DIR}/build")
 endif()
 
+message(STATUS "CMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}")
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 add_compile_options(
     "-std=c++17"
-    "-Wall"
+    "-Werror"
     "-Wno-deprecated-declarations"
     "-Wno-unused-result"
     "$<$<CONFIG:Debug>:-ggdb>"
     "$<$<CONFIG:Debug>:-O0>"
-    "$<$<CONFIG:Release>:-Werror>"
-    "$<$<CONFIG:Release>:-O2>"
-)
+    "$<$<CONFIG:Release>:-O2>")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+add_compile_options(
+    "-std=c++17"
+    "-Werror"
+    "-Wno-deprecated-declarations"
+    "-Wno-unused-result"
+    "$<$<CONFIG:Debug>:-ggdb>"
+    "$<$<CONFIG:Debug>:-O0>"
+    "$<$<CONFIG:Release>:-O2>")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+add_compile_options(
+    "-std=c++17"
+    "-Werror"
+    "-Wno-deprecated-declarations"
+    "-Wno-unused-result"
+    "$<$<CONFIG:Debug>:-ggdb>"
+    "$<$<CONFIG:Debug>:-O0>"
+    "$<$<CONFIG:Release>:-O2>")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+add_compile_options(
+    "-std=c++17"
+    "-Werror"
+    "-Wno-deprecated-declarations"
+    "-Wno-unused-result"
+    "$<$<CONFIG:Debug>:-ggdb>"
+    "$<$<CONFIG:Debug>:-O0>"
+    "$<$<CONFIG:Release>:-O2>")
+endif()
