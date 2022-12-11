@@ -119,7 +119,7 @@ namespace running
     AutoThread::AutoThread(IRunnable *runnable_object, int core_id)
         : pimpl_(std::make_unique<Impl>(runnable_object, core_id)) {}
     AutoThread::~AutoThread() { terminate(); }
-    bool AutoThread::terminated() const { return pimpl_->terminated_; }
-    void AutoThread::terminate() { pimpl_->terminated_ = true; }
+    bool AutoThread::terminated() const { return pimpl_->terminated_.load(); }
+    void AutoThread::terminate() { pimpl_->terminated_.store(true); }
     int AutoThread::getCoreId() const { return pimpl_->core_id_; };
 } // namespace running
