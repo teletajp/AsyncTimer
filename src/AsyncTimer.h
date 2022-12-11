@@ -23,7 +23,7 @@ struct alignas(64) AsyncTimerTask
     uint64_t ns = 0;       ///< Время сработки таймера в наносекундах
     bool is_async = false; ///< Асинхронное выполнение задания
     Cb cb;                 ///< Задание таймера
-    uint64_t padding = 0;
+    uint64_t id = 0;       ///< id таймера
 
     AsyncTimerTask() = default;
     AsyncTimerTask(const AsyncTimerTask &o) = default;
@@ -33,11 +33,13 @@ struct alignas(64) AsyncTimerTask
         if (&o != this)
         {
             ns = o.ns;
+            is_async = o.is_async;
             cb = o.cb;
+            id = o.id;
         }
         return *this;
     };
-    AsyncTimerTask(uint64_t ns, Cb cb, bool is_async = false) : ns(ns), is_async(is_async), cb(cb){};
+    AsyncTimerTask(uint64_t ns, Cb cb, uint64_t id, bool is_async = false) : ns(ns), id(id), is_async(is_async), cb(cb){};
     ~AsyncTimerTask() = default;
     bool operator<(const AsyncTimerTask &o) const { return ns < o.ns; }
     bool operator>(const AsyncTimerTask &o) const { return ns > o.ns; }
@@ -55,14 +57,11 @@ struct alignas(64) AsyncTimerTask
 
 struct TimerInfo
 {
-    union
-    {
-        uint64_t id = 0;
-        uint64_t start_tm_ns;
-    };
+    uint64_t id = 0;
+    uint64_t start_tm_ns = 0;
     uint64_t shedule_tm_ns = 0;
     TimerInfo() = default;
-    TimerInfo(uint64_t start_tm_ns, uint64_t shedule_tm_ns) : start_tm_ns(start_tm_ns), shedule_tm_ns(shedule_tm_ns) {}
+    TimerInfo(uint64_t id, uint64_t start_tm_ns, uint64_t shedule_tm_ns) : id(id), start_tm_ns(start_tm_ns), shedule_tm_ns(shedule_tm_ns) { id++; }
 };
 /**
  * @brief Асинхронный таймер
@@ -85,6 +84,7 @@ private:
     uint64_t max_delay_;
     size_t max_size_;
     std::atomic_bool running_;
+    uint64_t timer_info_id_;
 
 public:
     /**
@@ -127,7 +127,16 @@ public:
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
     TimerInfo createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async = false);
-    // uint64_t deleteTimer(uint64_t id);
+    /**
+     * @brief Удаление таймера
+     *
+     * @param id id таймера
+     * @return true Успешное удаление
+     * @return false Таймер не найден
+     *
+     * Тяжелая операция 2*log(n)
+     */
+    bool deleteTimer(uint64_t id);
     /**
      * @brief Запуск цикла проверки таймеров
      *
@@ -156,4 +165,6 @@ public:
 
 private:
     size_t checkTimers();
+    bool delTimer_(uint64_t id, TaskQueue &q);
+    TimerInfo addTimer_(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async);
 };

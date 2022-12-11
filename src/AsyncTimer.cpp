@@ -16,7 +16,8 @@ AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
       cur_ns_(0),
       max_delay_(0),
       max_size_(0),
-      running_(false)
+      running_(false),
+      timer_info_id_(0)
 {
 
     while (!tasks_queue_.empty())
@@ -32,32 +33,34 @@ AsyncTimer::~AsyncTimer()
     }
 }
 
-TimerInfo AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::addTimer_(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
 {
     uint64_t cur_ns = 0;
+    if (qsize_ == max_timers_)
+        return {};
+    if (cur_ns = getTimeNs(); cur_ns == 0)
+        return {};
+    ns += cur_ns;
+    cur_ns_ = cur_ns;
+    tasks_queue_.emplace(ns, cb, ++timer_info_id_, is_async);
+    qsize_++;
+    return {timer_info_id_, cur_ns, ns};
+}
+
+TimerInfo AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
+{
+    TimerInfo ret;
     if (running_.load())
     {
-        std::lock_guard<std::mutex> lock(mtx_);
-        if (qsize_ == max_timers_)
-            return {};
-        if (cur_ns = getTimeNs(); cur_ns == 0)
-            return {};
-        ns += cur_ns;
-        cur_ns_ = cur_ns;
-        tasks_queue_.emplace(ns, cb, is_async);
-        qsize_++;
+        std::lock_guard lock(mtx_);
+        ret = addTimer_(ns, cb, is_async);
         new_timer_event_.notify_one();
     }
     else
     {
-        if (cur_ns = getTimeNs(); cur_ns == 0)
-            return {};
-        ns += cur_ns;
-        cur_ns_ = cur_ns;
-        tasks_queue_.emplace(ns, cb, is_async);
-        qsize_++;
+        ret = addTimer_(ns, cb, is_async);
     }
-    return {cur_ns, ns};
+    return ret;
 }
 
 TimerInfo AsyncTimer::createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async)
@@ -70,6 +73,40 @@ TimerInfo AsyncTimer::createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool i
 {
     uint64_t ns = static_cast<uint64_t>(sec) * 1'000'000'000;
     return createNanoTimer(ns, cb, is_async);
+}
+
+bool AsyncTimer::delTimer_(uint64_t id, TaskQueue &nq)
+{
+    bool ret = false;
+    while (!tasks_queue_.empty())
+    {
+        const auto &el = tasks_queue_.top();
+        if (el.id != id)
+        {
+            nq.emplace(el);
+        }
+        else
+        {
+            ret = true;
+        }
+        tasks_queue_.pop();
+    }
+    tasks_queue_.swap(nq);
+    return ret;
+}
+
+bool AsyncTimer::deleteTimer(uint64_t id)
+{
+    TaskQueue new_queue{Comp(), Container(max_timers_)};
+    while (!new_queue.empty())
+        new_queue.pop();
+
+    if (running_.load())
+    {
+        std::lock_guard lock(mtx_);
+        return delTimer_(id, new_queue);
+    }
+    return delTimer_(id, new_queue);
 }
 
 size_t AsyncTimer::checkTimers()
