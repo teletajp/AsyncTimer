@@ -1,6 +1,11 @@
 #include "AsyncTimer.h"
+#include "AllocatorOnArray.h"
 #include <thread>
 #include <chrono>
+#include <mutex>
+#include <list>
+#include <algorithm>
+
 using namespace std::chrono_literals;
 
 uint64_t getTimeNs()
@@ -8,173 +13,246 @@ uint64_t getTimeNs()
     return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
-    : max_timers_(max_timers),
-      check_interval_ns_(check_interval_ns),
-      qsize_(0),
-      tasks_queue_(Comp(), Container(max_timers_)),
-      cur_ns_(0),
-      max_delay_(0),
-      max_size_(0),
-      running_(false),
-      timer_info_id_(0)
+/**
+ * @brief Задание таймера
+ *
+ */
+struct alignas(64) AsyncTimerTask
 {
+    uint64_t ns = 0;        ///< Время сработки таймера в наносекундах
+    bool is_async = false;  ///< Асинхронное выполнение задания
+    TaskCbPtr cb = nullptr; ///< Задание таймера
+    uint64_t id = 0;        ///< id таймера
 
-    while (!tasks_queue_.empty())
-        tasks_queue_.pop();
+    AsyncTimerTask() = default;
+    AsyncTimerTask(const AsyncTimerTask &o) = default;
+    AsyncTimerTask(AsyncTimerTask &&o) = default;
+    AsyncTimerTask &operator=(const AsyncTimerTask &o)
+    {
+        if (&o != this)
+        {
+            ns = o.ns;
+            is_async = o.is_async;
+            cb = o.cb;
+            id = o.id;
+        }
+        return *this;
+    };
+    AsyncTimerTask(uint64_t ns, TaskCbPtr &cb, uint64_t id, bool is_async = false) : ns(ns), id(id), is_async(is_async), cb(cb){};
+    ~AsyncTimerTask();
+    bool operator<(const AsyncTimerTask &o) const { return ns < o.ns; }
+    bool operator>(const AsyncTimerTask &o) const { return ns > o.ns; }
+    bool operator==(const AsyncTimerTask &o) const { return ns == o.ns; }
+    void run()
+    {
+        if (cb)
+            cb->run();
+    }
+};
+
+AsyncTimerTask::~AsyncTimerTask()
+{
+    if (cb)
+        cb.reset();
+}
+
+static constexpr size_t MAX_TASKS = 1'000'000;
+using alloc_type = AllocatorOnArray<AsyncTimerTask, MAX_TASKS>;
+class AsyncTimer::Impl
+{
+public:
+    using TimerList = std::list<AsyncTimerTask, alloc_type>;
+    const uint32_t max_timers;
+    const uint64_t check_interval_ns;
+    std::atomic_bool running;
+    TimerList active_timers;
+    std::mutex mtx;
+    uint64_t timer_id;
+    uint32_t max_size;
+    uint64_t max_delay;
+    std::atomic_uint64_t last_tm;
+    Impl(uint32_t max_timers, uint64_t check_interval_ns);
+    ~Impl();
+    TimerInfo addTimer(uint64_t ns, TaskCbPtr &cb, bool is_async);
+    TimerInfo createTimer(uint64_t ns, TaskCbPtr &cb, bool is_async);
+    bool delTimer(uint64_t id);
+    bool deleteTimer(uint64_t id);
+    void run(std::atomic_bool &terminate);
+    size_t checkTimers(int64_t elapsed_tm);
+    size_t checkNow();
+};
+
+AsyncTimer::Impl::Impl(uint32_t max_timers, uint64_t check_interval_ns)
+    : max_timers(max_timers > MAX_TASKS ? MAX_TASKS : max_timers),
+      check_interval_ns(check_interval_ns), running(false),
+      active_timers(),
+      timer_id(0), max_size(0), max_delay(0), last_tm(getTimeNs())
+{
+}
+
+AsyncTimer::Impl::~Impl()
+{
+    for (auto &t : active_timers)
+    {
+        t.cb->run();
+    }
+}
+
+TimerInfo AsyncTimer::Impl::addTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
+{
+    if (active_timers.size() == max_timers)
+        return {};
+    active_timers.emplace_back(ns, cb, ++timer_id, is_async);
+    uint64_t cur_time = getTimeNs();
+    max_size = std::max(static_cast<uint32_t>(active_timers.size()), max_size);
+    return {timer_id, cur_time, cur_time + ns};
+}
+TimerInfo AsyncTimer::Impl::createTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
+{
+    if (running.load(std::memory_order::memory_order_acquire))
+    {
+        std::lock_guard lock(mtx);
+        return addTimer(ns, cb, is_async);
+    }
+    return addTimer(ns, cb, is_async);
+}
+
+bool AsyncTimer::Impl::delTimer(uint64_t id)
+{
+    auto it = std::find_if(active_timers.begin(), active_timers.end(), [id](const auto &task)
+                           { return task.id == id; });
+    if (it != active_timers.end())
+    {
+        active_timers.erase(it);
+        return true;
+    }
+    return false;
+}
+
+bool AsyncTimer::Impl::deleteTimer(uint64_t id)
+{
+    if (running.load(std::memory_order::memory_order_acquire))
+    {
+        std::lock_guard lock(mtx);
+        return delTimer(id);
+    }
+    return delTimer(id);
+}
+
+size_t AsyncTimer::Impl::checkTimers(int64_t elapsed_tm)
+{
+    size_t count = 0;
+    for (auto it = active_timers.begin(); it != active_timers.end();)
+    {
+        if (it->ns <= elapsed_tm)
+        {
+            if (!it->is_async)
+            {
+                it->cb->run();
+            }
+            else
+            {
+                std::thread th(&AsyncTimerTaskCb::run, it->cb);
+                th.detach();
+            }
+            max_delay = std::max(static_cast<uint64_t>(elapsed_tm - it->ns), max_delay);
+            it = active_timers.erase(it);
+            count++;
+        }
+        else
+        {
+            it->ns -= elapsed_tm;
+            it++;
+        }
+    }
+    return count;
+}
+
+size_t AsyncTimer::Impl::checkNow()
+{
+    int64_t elapsed_tm = 0;
+    uint64_t tm = getTimeNs();
+    elapsed_tm = tm - last_tm;
+    if (running.load())
+    {
+        std::lock_guard lock(mtx);
+        last_tm = tm;
+        return checkTimers(elapsed_tm);
+    }
+    last_tm = tm;
+    return checkTimers(elapsed_tm);
+}
+
+void AsyncTimer::Impl::run(std::atomic_bool &terminate)
+{
+    uint64_t tm = getTimeNs();
+    last_tm = tm;
+    int64_t elapsed_tm = 0;
+    running.store(true, std::memory_order::memory_order_release);
+    while (!terminate.load())
+    {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(check_interval_ns));
+        tm = getTimeNs();
+        elapsed_tm = tm - last_tm;
+        if (elapsed_tm > 0)
+        {
+            std::lock_guard lock(mtx);
+            checkTimers(elapsed_tm);
+        }
+        last_tm = tm;
+    }
+    running.store(false, std::memory_order::memory_order_release);
+}
+
+AsyncTimer::AsyncTimer(uint32_t max_timers, uint64_t check_interval_ns)
+    : pimpl_(std::make_unique<Impl>(max_timers, check_interval_ns))
+{
 }
 
 AsyncTimer::~AsyncTimer()
 {
-    while (!tasks_queue_.empty())
-    {
-        tasks_queue_.top().run();
-        tasks_queue_.pop();
-    }
 }
 
-TimerInfo AsyncTimer::addTimer_(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createNanoTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
 {
-    uint64_t cur_ns = 0;
-    if (qsize_ == max_timers_)
-        return {};
-    if (cur_ns = getTimeNs(); cur_ns == 0)
-        return {};
-    ns += cur_ns;
-    cur_ns_ = cur_ns;
-    tasks_queue_.emplace(ns, cb, ++timer_info_id_, is_async);
-    qsize_++;
-    return {timer_info_id_, cur_ns, ns};
+    if (cb)
+        return pimpl_->createTimer(ns, cb, is_async);
+    return {};
 }
 
-TimerInfo AsyncTimer::createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async)
-{
-    TimerInfo ret;
-    if (running_.load())
-    {
-        std::lock_guard lock(mtx_);
-        ret = addTimer_(ns, cb, is_async);
-        new_timer_event_.notify_one();
-    }
-    else
-    {
-        ret = addTimer_(ns, cb, is_async);
-    }
-    return ret;
-}
-
-TimerInfo AsyncTimer::createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createMilliTimer(uint64_t ms, TaskCbPtr &cb, bool is_async)
 {
     uint64_t ns = ms * 1'000'000;
     return createNanoTimer(ns, cb, is_async);
 }
 
-TimerInfo AsyncTimer::createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async)
+TimerInfo AsyncTimer::createSecTimer(uint32_t sec, TaskCbPtr &cb, bool is_async)
 {
     uint64_t ns = static_cast<uint64_t>(sec) * 1'000'000'000;
     return createNanoTimer(ns, cb, is_async);
 }
 
-bool AsyncTimer::delTimer_(uint64_t id, TaskQueue &nq)
-{
-    bool ret = false;
-    while (!tasks_queue_.empty())
-    {
-        const auto &el = tasks_queue_.top();
-        if (el.id != id)
-        {
-            nq.emplace(el);
-        }
-        else
-        {
-            ret = true;
-        }
-        tasks_queue_.pop();
-    }
-    tasks_queue_.swap(nq);
-    return ret;
-}
-
 bool AsyncTimer::deleteTimer(uint64_t id)
 {
-    TaskQueue new_queue{Comp(), Container(max_timers_)};
-    while (!new_queue.empty())
-        new_queue.pop();
-
-    if (running_.load())
-    {
-        std::lock_guard lock(mtx_);
-        return delTimer_(id, new_queue);
-    }
-    return delTimer_(id, new_queue);
+    return pimpl_->deleteTimer(id);
 }
 
-size_t AsyncTimer::checkTimers()
+size_t AsyncTimer::checkTimersNow()
 {
-    uint64_t delay = 0;
-    size_t count = 0;
-    while (!tasks_queue_.empty() && tasks_queue_.top().ns <= cur_ns_)
-    {
-        count++;
-        if (tasks_queue_.top().cb)
-        {
-            if (!tasks_queue_.top().is_async)
-                tasks_queue_.top().cb();
-            else
-            {
-                std::thread t(tasks_queue_.top().cb);
-                t.detach();
-            }
-        }
-        cur_ns_ = getTimeNs();
-        delay = cur_ns_ - tasks_queue_.top().ns;
-        max_delay_ = std::max(max_delay_, delay);
-        max_size_ = std::max(max_size_, qsize_);
-        tasks_queue_.pop();
-        qsize_--;
-    }
-    return count;
-}
-
-void AsyncTimer::checkTimersNow()
-{
-    if (running_.load())
-    {
-        // std::lock_guard<std::mutex> lock(mtx_);
-        new_timer_event_.notify_one();
-    }
-    else
-    {
-        uint64_t cur_ns = 0;
-        if (cur_ns = getTimeNs(); cur_ns != 0)
-        {
-            cur_ns_ = cur_ns;
-            checkTimers();
-        }
-    }
+    return pimpl_->checkNow();
 }
 
 void AsyncTimer::run(std::atomic_bool &terminate)
 {
-    uint64_t cur_ns = 0;
-    uint64_t timeout = 0;
-    std::unique_lock<std::mutex> lock(mtx_, std::defer_lock);
-    running_.store(true);
-    while (!terminate.load(std::memory_order_relaxed))
-    {
-        cur_ns = getTimeNs();
-        if (cur_ns != 0)
-        {
-            lock.lock();
-            cur_ns_ = cur_ns;
-            if (!tasks_queue_.empty())
-                timeout = std::min(check_interval_ns_, tasks_queue_.top().ns >= cur_ns_ ? tasks_queue_.top().ns - cur_ns_ : cur_ns_ - tasks_queue_.top().ns);
-            else
-                timeout = check_interval_ns_;
-            new_timer_event_.wait_for(lock, std::chrono::nanoseconds(timeout));
-            checkTimers();
-            lock.unlock();
-        }
-    }
-    running_.store(false);
+    pimpl_->run(terminate);
+}
+
+uint64_t AsyncTimer::maxDelay()
+{
+    return pimpl_->max_delay;
+}
+
+uint64_t AsyncTimer::maxSize()
+{
+    return pimpl_->max_size;
 }

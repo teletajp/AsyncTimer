@@ -1,10 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <functional>
-#include <vector>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
 #include "Runnable.h"
 
 /**
@@ -13,48 +10,13 @@
  * @return uint64_t Кол-во наносекунд
  */
 uint64_t getTimeNs();
-/**
- * @brief Задание таймера
- *
- */
-struct alignas(64) AsyncTimerTask
+
+struct AsyncTimerTaskCb
 {
-    using Cb = std::function<void()>;
-    uint64_t ns = 0;       ///< Время сработки таймера в наносекундах
-    bool is_async = false; ///< Асинхронное выполнение задания
-    Cb cb;                 ///< Задание таймера
-    uint64_t id = 0;       ///< id таймера
-
-    AsyncTimerTask() = default;
-    AsyncTimerTask(const AsyncTimerTask &o) = default;
-    AsyncTimerTask(AsyncTimerTask &&o) = default;
-    AsyncTimerTask &operator=(const AsyncTimerTask &o)
-    {
-        if (&o != this)
-        {
-            ns = o.ns;
-            is_async = o.is_async;
-            cb = o.cb;
-            id = o.id;
-        }
-        return *this;
-    };
-    AsyncTimerTask(uint64_t ns, Cb cb, uint64_t id, bool is_async = false) : ns(ns), id(id), is_async(is_async), cb(cb){};
-    ~AsyncTimerTask() = default;
-    bool operator<(const AsyncTimerTask &o) const { return ns < o.ns; }
-    bool operator>(const AsyncTimerTask &o) const { return ns > o.ns; }
-    bool operator==(const AsyncTimerTask &o) const { return ns == o.ns; }
-    /**
-     * @brief Запуск задания таймера
-     *
-     */
-    void run() const
-    {
-        if (cb)
-            cb();
-    }
+    virtual void run() = 0;
+    virtual ~AsyncTimerTaskCb() = default;
 };
-
+using TaskCbPtr = std::shared_ptr<AsyncTimerTaskCb>;
 struct TimerInfo
 {
     uint64_t id = 0;
@@ -69,22 +31,6 @@ struct TimerInfo
  */
 class AsyncTimer : public running::IRunnable
 {
-    using Container = std::vector<AsyncTimerTask>;
-    using Comp = std::greater<AsyncTimerTask>;
-    using TaskQueue = std::priority_queue<AsyncTimerTask, Container, Comp>;
-
-private:
-    const uint32_t max_timers_;
-    const uint64_t check_interval_ns_;
-    size_t qsize_;
-    TaskQueue tasks_queue_;
-    uint64_t cur_ns_;
-    std::mutex mtx_;
-    std::condition_variable new_timer_event_;
-    uint64_t max_delay_;
-    size_t max_size_;
-    std::atomic_bool running_;
-    uint64_t timer_info_id_;
 
 public:
     /**
@@ -108,7 +54,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    TimerInfo createNanoTimer(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createNanoTimer(uint64_t ns, TaskCbPtr &cb, bool is_async = false);
     /**
      * @brief Создание таймера ожидающего ms милисекунд
      *
@@ -117,7 +63,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    TimerInfo createMilliTimer(uint64_t ms, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createMilliTimer(uint64_t ms, TaskCbPtr &cb, bool is_async = false);
     /**
      * @brief Создание таймера ожидающего sec секунд
      *
@@ -126,7 +72,7 @@ public:
      * @param is_async асинхронное выполнение задания
      * @return uint64_t идентификатор таймера или 0 в случае ошибки
      */
-    TimerInfo createSecTimer(uint32_t sec, AsyncTimerTask::Cb cb, bool is_async = false);
+    TimerInfo createSecTimer(uint32_t sec, TaskCbPtr &cb, bool is_async = false);
     /**
      * @brief Удаление таймера
      *
@@ -145,26 +91,25 @@ public:
     void run(std::atomic_bool &terminate) override;
     /**
      * @brief Проверить таймеры сейчас (не дожидаясь истечения интервала таймера)
-     *
+     * @return size_t количество сработавших таймеров
      */
-    void checkTimersNow();
+    size_t checkTimersNow();
     /**
      * @brief Получение максимальной задержки в наносекундах
      *
      * @return uint64_t
      * Не потокобезопасен
      */
-    uint64_t maxDelay() const { return max_delay_; }
+    uint64_t maxDelay();
     /**
      * @brief Получение максимального количества активных таймеров
      *
      * @return uint64_t
      * Не потокобезопасен
      */
-    uint64_t maxSize() const { return max_size_; }
+    uint64_t maxSize();
 
 private:
-    size_t checkTimers();
-    bool delTimer_(uint64_t id, TaskQueue &q);
-    TimerInfo addTimer_(uint64_t ns, AsyncTimerTask::Cb cb, bool is_async);
+    class Impl;
+    std::unique_ptr<Impl> pimpl_;
 };
