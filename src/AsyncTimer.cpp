@@ -103,9 +103,9 @@ TimerInfo AsyncTimer::Impl::addTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
     if (active_timers.size() == max_timers)
         return {};
     active_timers.emplace_back(ns, cb, ++timer_id, is_async);
-    uint64_t cur_time = getTimeNs();
+    last_tm = getTimeNs();
     max_size = std::max(static_cast<uint32_t>(active_timers.size()), max_size);
-    return {timer_id, cur_time, cur_time + ns};
+    return {timer_id, last_tm, last_tm + ns};
 }
 TimerInfo AsyncTimer::Impl::createTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
 {
