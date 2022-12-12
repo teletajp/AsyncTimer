@@ -23,7 +23,7 @@ struct TimerInfo
     uint64_t start_tm_ns = 0;
     uint64_t shedule_tm_ns = 0;
     TimerInfo() = default;
-    TimerInfo(uint64_t id, uint64_t start_tm_ns, uint64_t shedule_tm_ns) : id(id), start_tm_ns(start_tm_ns), shedule_tm_ns(shedule_tm_ns) { id++; }
+    TimerInfo(uint64_t id, uint64_t start_tm_ns, uint64_t shedule_tm_ns) : id(id), start_tm_ns(start_tm_ns), shedule_tm_ns(shedule_tm_ns) {}
 };
 /**
  * @brief Асинхронный таймер

@@ -117,6 +117,12 @@ TEST_F(AsyncTimerTest, test10_000)
         std::this_thread::sleep_for(10s);
     }
     std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
+    uint64_t max_delay = 0;
+    for (uint32_t i = 0; i < max_tasks; ++i)
+    {
+        max_delay = std::max(max_delay, task_stop_times[i] - task_ids[i].shedule_tm_ns);
+    }
+    std::cout << "MAX_DELAY:" << max_delay << " MAX_SIZE:" << at.maxSize() << std::endl;
 }
 
 TEST_F(AsyncTimerTest, test)
