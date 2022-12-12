@@ -49,9 +49,7 @@ TEST_F(AsyncTimerTest, test1_000_000)
         }
         std::this_thread::sleep_for(10s);
     }
-
-    /* Раскоментировать для генерации отчета в csv: ./x64-osx/bin/tests/async_timer_test --gtest_filter=AsyncTimerTest.test1_000_000 > out.csv*/
-    // std::cout << "start_tm_ns;shedule_tm_ns;stop_tm\n";
+    std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
     uint64_t max_delay = 0;
     for (uint32_t i = 0; i < max_tasks; ++i)
     {
@@ -84,7 +82,6 @@ TEST_F(AsyncTimerTest, test100_000)
         std::this_thread::sleep_for(10s);
     }
     std::cout << "MAX_DELAY:" << at.maxDelay() << " MAX_SIZE:" << at.maxSize() << std::endl;
-    /* Раскоментировать для генерации отчета в csv: ./x64-osx/bin/tests/async_timer_test --gtest_filter=AsyncTimerTest.test100_000 > out.csv*/
     uint64_t max_delay = 0;
     for (uint32_t i = 0; i < max_tasks; ++i)
     {
