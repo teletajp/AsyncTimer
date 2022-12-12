@@ -70,7 +70,7 @@ public:
     uint64_t timer_id;
     uint32_t max_size;
     uint64_t max_delay;
-    std::atomic_uint64_t last_tm;
+    uint64_t cur_tm;
     Impl(uint32_t max_timers, uint64_t check_interval_ns);
     ~Impl();
     TimerInfo addTimer(uint64_t ns, TaskCbPtr &cb, bool is_async);
@@ -78,7 +78,7 @@ public:
     bool delTimer(uint64_t id);
     bool deleteTimer(uint64_t id);
     void run(std::atomic_bool &terminate);
-    size_t checkTimers(int64_t elapsed_tm);
+    size_t checkTimers();
     size_t checkNow();
 };
 
@@ -86,7 +86,7 @@ AsyncTimer::Impl::Impl(uint32_t max_timers, uint64_t check_interval_ns)
     : max_timers(max_timers > MAX_TASKS ? MAX_TASKS : max_timers),
       check_interval_ns(check_interval_ns), running(false),
       active_timers(),
-      timer_id(0), max_size(0), max_delay(0), last_tm(getTimeNs())
+      timer_id(0), max_size(0), max_delay(0), cur_tm(getTimeNs())
 {
 }
 
@@ -102,10 +102,10 @@ TimerInfo AsyncTimer::Impl::addTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
 {
     if (active_timers.size() == max_timers)
         return {};
-    active_timers.emplace_back(ns, cb, ++timer_id, is_async);
-    last_tm = getTimeNs();
+    cur_tm = getTimeNs();
+    active_timers.emplace_back(ns + cur_tm, cb, ++timer_id, is_async);
     max_size = std::max(static_cast<uint32_t>(active_timers.size()), max_size);
-    return {timer_id, last_tm, last_tm + ns};
+    return {timer_id, cur_tm, cur_tm + ns};
 }
 TimerInfo AsyncTimer::Impl::createTimer(uint64_t ns, TaskCbPtr &cb, bool is_async)
 {
@@ -139,13 +139,14 @@ bool AsyncTimer::Impl::deleteTimer(uint64_t id)
     return delTimer(id);
 }
 
-size_t AsyncTimer::Impl::checkTimers(int64_t elapsed_tm)
+size_t AsyncTimer::Impl::checkTimers()
 {
     size_t count = 0;
     for (auto it = active_timers.begin(); it != active_timers.end();)
     {
-        if (it->ns <= elapsed_tm)
+        if (it->ns <= cur_tm)
         {
+            max_delay = std::max(static_cast<uint64_t>(cur_tm - it->ns), max_delay);
             if (!it->is_async)
             {
                 it->cb->run();
@@ -155,13 +156,11 @@ size_t AsyncTimer::Impl::checkTimers(int64_t elapsed_tm)
                 std::thread th(&AsyncTimerTaskCb::run, it->cb);
                 th.detach();
             }
-            max_delay = std::max(static_cast<uint64_t>(elapsed_tm - it->ns), max_delay);
             it = active_timers.erase(it);
             count++;
         }
         else
         {
-            it->ns -= elapsed_tm;
             it++;
         }
     }
@@ -170,36 +169,26 @@ size_t AsyncTimer::Impl::checkTimers(int64_t elapsed_tm)
 
 size_t AsyncTimer::Impl::checkNow()
 {
-    int64_t elapsed_tm = 0;
-    uint64_t tm = getTimeNs();
-    elapsed_tm = tm - last_tm;
     if (running.load())
     {
         std::lock_guard lock(mtx);
-        last_tm = tm;
-        return checkTimers(elapsed_tm);
+        cur_tm = getTimeNs();
+        return checkTimers();
     }
-    last_tm = tm;
-    return checkTimers(elapsed_tm);
+    cur_tm = getTimeNs();
+    return checkTimers();
 }
 
 void AsyncTimer::Impl::run(std::atomic_bool &terminate)
 {
-    uint64_t tm = getTimeNs();
-    last_tm = tm;
     int64_t elapsed_tm = 0;
     running.store(true, std::memory_order::memory_order_release);
     while (!terminate.load())
     {
         std::this_thread::sleep_for(std::chrono::nanoseconds(check_interval_ns));
-        tm = getTimeNs();
-        elapsed_tm = tm - last_tm;
-        if (elapsed_tm > 0)
-        {
-            std::lock_guard lock(mtx);
-            checkTimers(elapsed_tm);
-        }
-        last_tm = tm;
+        std::lock_guard lock(mtx);
+        cur_tm = getTimeNs();
+        checkTimers();
     }
     running.store(false, std::memory_order::memory_order_release);
 }

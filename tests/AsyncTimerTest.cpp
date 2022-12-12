@@ -32,7 +32,7 @@ TEST_F(AsyncTimerTest, test1_000_000)
     std::vector<TimerInfo> task_ids;
     std::vector<uint64_t> task_stop_times(max_tasks);
     task_ids.reserve(max_tasks);
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -66,7 +66,7 @@ TEST_F(AsyncTimerTest, test100_000)
     std::vector<TimerInfo> task_ids;
     std::vector<uint64_t> task_stop_times(max_tasks);
     task_ids.reserve(max_tasks);
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -99,7 +99,7 @@ TEST_F(AsyncTimerTest, test10_000)
     std::vector<TimerInfo> task_ids;
     std::vector<uint64_t> task_stop_times(max_tasks);
     task_ids.reserve(max_tasks);
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -130,7 +130,7 @@ TEST_F(AsyncTimerTest, test)
     const uint32_t max_tasks = 10'000;
     std::vector<TimerInfo> task_ids;
     task_ids.reserve(max_tasks);
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
@@ -158,7 +158,7 @@ TEST_F(AsyncTimerTest, test_async)
     const uint32_t max_tasks = 10'000;
     std::vector<TimerInfo> task_ids;
     task_ids.reserve(max_tasks);
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
@@ -184,7 +184,7 @@ TEST_F(AsyncTimerTest, test_async)
 TEST_F(AsyncTimerTest, test_max_tasks)
 {
     const uint32_t max_tasks = 2;
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     {
         running::AutoThread thr(&at);
         std::this_thread::sleep_for(1s);
@@ -205,7 +205,7 @@ TEST_F(AsyncTimerTest, test_max_tasks)
 TEST_F(AsyncTimerTest, test_no_running)
 {
     const uint32_t max_tasks = 10;
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     for (uint32_t i = 1; i <= max_tasks; ++i)
     {
         std::shared_ptr<AsyncTimerTaskCb> task_ptr1 = std::make_shared<TestTask>([i]()
@@ -232,7 +232,7 @@ TEST_F(AsyncTimerTest, test_no_running)
 TEST_F(AsyncTimerTest, test_no_running_one_task)
 {
     const uint32_t max_tasks = 10;
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     std::shared_ptr<AsyncTimerTaskCb> task_ptr1 = std::make_shared<TestTask>(TASK(1, 1));
     ASSERT_TRUE(at.createNanoTimer(1, task_ptr1).id);
     at.checkTimersNow();
@@ -242,7 +242,7 @@ TEST_F(AsyncTimerTest, test_no_running_one_task)
 TEST_F(AsyncTimerTest, test_del_task)
 {
     const uint32_t max_tasks = 10;
-    AsyncTimer at(max_tasks, 100'000);
+    AsyncTimer at(max_tasks, 1'000'000);
     std::shared_ptr<AsyncTimerTaskCb> task_ptr1 = std::make_shared<TestTask>(TASK(1, 1));
     std::shared_ptr<AsyncTimerTaskCb> task_ptr2 = std::make_shared<TestTask>(TASK(2, 10));
     std::shared_ptr<AsyncTimerTaskCb> task_ptr3 = std::make_shared<TestTask>(TASK(3, 100));
