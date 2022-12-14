@@ -26,7 +26,7 @@ struct alignas(64) AsyncTimerTask
 
     AsyncTimerTask() = default;
     AsyncTimerTask(const AsyncTimerTask &o) = default;
-    AsyncTimerTask(AsyncTimerTask &&o) = default;
+    AsyncTimerTask(AsyncTimerTask &&o) noexcept = default;
     AsyncTimerTask &operator=(const AsyncTimerTask &o)
     {
         if (&o != this)
